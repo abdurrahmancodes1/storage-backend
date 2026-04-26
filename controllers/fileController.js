@@ -39,7 +39,7 @@ export const getFile = async (req, res) => {
 
   if (req.query.action === "download") {
     const fileUrl = createCloudFrontGetSignedUrl({
-      key: `${id}${fileData.extension}`,
+      key: `${id}/${fileData.extension}`,
       download: true,
       filename: fileData.name,
     });
@@ -47,7 +47,7 @@ export const getFile = async (req, res) => {
   }
   console.log("I am called bro");
   const fileUrl = createCloudFrontGetSignedUrl({
-    key: `${id}${fileData.extension}`,
+    key: `${user._id}/${id}${fileData.extension}`,
     filename: fileData.name,
   });
   return res.redirect(fileUrl);
@@ -89,7 +89,9 @@ export const deleteFile = async (req, res, next) => {
   }
 
   try {
-    const resp = await deleteS3File(`${fileData._id}${fileData.extension}`);
+    const resp = await deleteS3File(
+      `${user._id}${fileData._id}${fileData.extension}`,
+    );
 
     console.log(resp);
     await User.updateOne(
@@ -155,7 +157,7 @@ export const uploadInitiate = async (req, res) => {
       isUploading: true,
     });
     const uploadSignedUrl = await createUploadSignedUrl({
-      key: `${fileDoc._id}${extension}`,
+      key: `${sessionUser._id}/${fileDoc._id}${extension}`,
       contentType: req.body.contentType,
     });
     console.log("Generated S3 key:", `${fileDoc._id}${extension}`);
@@ -179,7 +181,9 @@ export const uploadComplete = async (req, res, next) => {
       message: "files not found in our record",
     });
   }
-  const fileData = await getS3FileMetaData(`${file._id}${file.extension}`);
+  const fileData = await getS3FileMetaData(
+    `${req.user._id}/${file._id}${file.extension}`,
+  );
   console.log(fileData);
   try {
     if (fileData.ContentLength !== file.size) {

@@ -11,6 +11,7 @@ import {
   otpSchema,
   registerSchema,
 } from "../validators/authSchema.js";
+import File from "../models/fileModel.js";
 export const register = async (req, res) => {
   const { success, data, error } = registerSchema.safeParse(req.body);
   if (!success) {
@@ -144,7 +145,7 @@ export const verifyOTP = async (req, res, next) => {
       throw err;
     }
   } catch (err) {
-    next(err);
+    console.log(err);
   }
 };
 
@@ -181,7 +182,8 @@ export const login = async (req, res) => {
       name: user.name,
     },
   });
-  await redisClient.expire(redisKey, 60 * 1000 * 60 * 24 * 7);
+  await redisClient.expire(redisKey, 60 * 1000);
+  await redisClient.sAdd(`user_sesion:${user._id}`, sessionId);
   res.cookie("uid", sessionId, {
     httpOnly: true,
     signed: true,
@@ -267,13 +269,6 @@ export const loginWithGoogle = async (req, res) => {
       user = newUser;
     }
 
-    const userSessionsKey = `user:sessions:${user._id}`;
-    const data = await redisClient.json.get(userSessionsKey);
-    const sessions = data?.sessions || [];
-    if (sessions.length >= 2) {
-      const oldSessionId = sessions.shift();
-      await redisClient.del(`session:${oldSessionId}`);
-    }
     const sessionId = crypto.randomUUID();
     const redisKey = `session:${sessionId}`;
 
@@ -286,9 +281,9 @@ export const loginWithGoogle = async (req, res) => {
         name: user.name,
       },
     });
-    await redisClient.expire(redisKey, 60 * 1000 * 60 * 24 * 7);
-    sessions.push(sessionId);
-    await redisClient.json.set(userSessionsKey, "$", { sessions });
+    await redisClient.expire(redisKey, 60 * 1000);
+    await redisClient.sAdd(`user_sesion:${user._id}`, sessionId);
+
     res.cookie("uid", sessionId, {
       httpOnly: true,
       signed: true,
@@ -308,26 +303,16 @@ export const loginWithGoogle = async (req, res) => {
 };
 
 export const getAllUsers = async (req, res) => {
+  const { search } = req.query;
   try {
-    const users = await User.find({ role: { $ne: "Admin" } })
+    const users = await User.find({
+      role: { $ne: "Admin" },
+      email: { $regex: search, $options: "i" },
+    })
       .select("_id email name picture")
       .lean();
 
-    const usersWithStatus = await Promise.all(
-      users.map(async (user) => {
-        const session = await Session.findOne({ userId: user._id });
-
-        return {
-          ...user,
-          isLoggedIn: session ? true : false,
-        };
-      }),
-    );
-
-    res.status(200).json({
-      success: true,
-      users: usersWithStatus,
-    });
+    return res.status(200).json(users);
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -337,40 +322,57 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-export const logoutAllUsers = async (req, res) => {
+export const sharedWith = async (req, res) => {
+  // const { fileId, targetUser, permission } = req.body;
+  const { fileId, targetUserId, permission } = req.body;
+  console.log(req.body);
+
   try {
-    // console.log(req.params);
-    const id = req.params.id;
-
-    const sessions = await Session.deleteMany({ userId: id });
-    // console.log(sessions);
-    res.status(200).json({
-      success: true,
-      message: "",
-
-      id,
+    const file = await File.findById(fileId);
+    if (!file) {
+      return res.status(404).json({
+        error: "File not found",
+      });
+    }
+    if (file.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        message: "Not authorizzed",
+      });
+    }
+    for (let i = 0; i < targetUserId.length; i++) {
+      file.sharedWith.push({
+        userId: targetUserId[i],
+        permission: permission || "view",
+      });
+    }
+    await file.save();
+    console.log("After save:", file.sharedWith);
+    return res.status(200).json({
+      message: "File shared Successfully",
     });
   } catch (error) {
-    console.log(error);
+    return res.status(500).json({
+      message: "Failed to share files",
+    });
   }
 };
 
-export const deleteUser = async (req, res) => {
-  const id = req.params.id;
-  // console.log(req.param);
-  // console.log(id, "this user to be deleted");
+export const sharedWithMe = async (req, res) => {
+  const user = req.user;
   try {
-    // await User.findByIdAndDelete(id);
-    // await File.deleteMany({ userId: id });
-    // await Directory.deleteMany({ userId: id });
-
-    await Session.deleteMany({ userId: id });
-    await User.findByIdAndUpdate(id, { deleted: true });
-    res.status(200).json({
-      success: true,
-      message: "Delted the user",
-    });
+    const files = await File.find({ "sharedWith.userId": req.user._id })
+      .select("name size createdAt userId ")
+      .populate("userId", "name email")
+      .lean();
+    return res.status(200).json(files);
   } catch (error) {
-    console.log(error);
+    return res.status(500).json({
+      message: "Failed to get shared files ",
+    });
   }
+};
+
+export const sharePublic = async (req, res) => {
+  const user = req.user;
+  console.log("Generate Public Share");
 };

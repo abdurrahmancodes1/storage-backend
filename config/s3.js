@@ -3,6 +3,8 @@ import {
   DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3,
   S3Client,
@@ -82,4 +84,31 @@ export const deleteS3Files = async (keys) => {
     Quiet: false,
   });
   return await s3Client.send(command);
+};
+
+export const deleteS3FilesByAdmin = async (id) => {
+  let continuationToken = undefined;
+  do {
+    const listCommand = new ListObjectsV2Command({
+      Bucket: process.env.AWS_BUCKET,
+      Prefix: `${id}/`,
+      ContinuationToken: continuationToken,
+    });
+    const listResponse = await s3Client.send(listCommand);
+    if (listResponse.Contents && listResponse.Contents.length > 0) {
+      const deleteCommand = new DeleteObjectsCommand({
+        Bucket: process.env.AWS_BUCKET,
+        Delete: {
+          Objects: listResponse.Contents.map((obj) => ({
+            Key: obj.Key,
+          })),
+          Quiet: true,
+        },
+      });
+      await s3Client.send(deleteCommand);
+    }
+    continuationToken = listResponse.IsTruncated
+      ? listResponse.NextContinuationToken
+      : undefined;
+  } while (continuationToken);
 };

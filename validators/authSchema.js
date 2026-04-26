@@ -11,5 +11,5 @@ export const registerSchema = loginSchema.extend({
 
 export const otpSchema = z.object({
   email: z.string().email(),
-  otp: z.string,
+  otp: z.string().length(6),
 });

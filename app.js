@@ -9,6 +9,7 @@ import userRoutes from "./routes/userRoutes.js";
 import driveRoutes from "./routes/driveRoutes.js";
 import subscriptionRoutes from "./routes/subscriptionRoute.js";
 import checkAuth from "./middlewares/authMiddleware.js";
+import adminRoutes from "./routes/adminRoutes.js";
 import { connectDB } from "./config/mongoose.js";
 import webhooksRoutes from "./routes/webhookRoutes.js";
 await connectDB();
@@ -27,7 +28,7 @@ app.use("/directory", checkAuth, directoryRoutes);
 app.use("/file", checkAuth, fileRoutes);
 app.use("/user", userRoutes);
 app.use("/webhooks", webhooksRoutes);
-
+app.use("/admin", adminRoutes);
 app.use("/api/drive", checkAuth, driveRoutes);
 app.use("/subscription", checkAuth, subscriptionRoutes);
 app.use((err, req, res, next) => {

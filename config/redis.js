@@ -1,20 +1,3 @@
-// import { createClient } from "redis";
-
-// const redisClient = createClient({
-//   url: process.env.REDIS_URL,
-//   username: "default",
-//   password:,
-// });
-
-// redisClient.on("error", (err) => {
-//   console.log("redis client error", err);
-//   process.exit(1);
-// });
-
-// await redisClient.connect();
-
-// export default redisClient;
-
 import { createClient } from "redis";
 
 const redisClient = createClient({
@@ -22,7 +5,7 @@ const redisClient = createClient({
   password: process.env.REDIS_PASSWORD,
   socket: {
     host: process.env.REDIS_URL,
-    port: 18361,
+    port: 15651,
   },
 });
 

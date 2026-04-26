@@ -1,4 +1,4 @@
-import { model, Schema } from "mongoose";
+import mongoose, { model, Schema } from "mongoose";
 
 const fileSchema = new Schema(
   {
@@ -8,6 +8,12 @@ const fileSchema = new Schema(
     parentDirId: { type: Schema.Types.ObjectId, ref: "Directory" },
     size: { type: Number },
     isUploading: { type: Boolean, default: false },
+    sharedWith: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        permission: { type: String, default: "view" },
+      },
+    ],
   },
   { timestamps: true, strict: "throw" },
 );

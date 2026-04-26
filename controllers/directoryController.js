@@ -6,14 +6,11 @@ import { deleteS3Files } from "../config/s3.js";
 export const getDirectory = async (req, res) => {
   const user = req.user;
 
-  // console.log(req.user, "this is user");
   const _id = req.params.id || user.rootDirId.toString();
-  // console.log(_id, "this is his id");
   const directoryData = await Directory.findOne({
     _id,
     userId: user._id,
   }).lean();
-  // console.log(directoryData, "form herererer");
   if (!directoryData)
     return res.status(404).json({
       error: "Directory not found or access denied",
