@@ -34,7 +34,9 @@ app.use("/subscription", checkAuth, subscriptionRoutes);
 app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: "Something went wrong!" });
 });
-
+app.get("/", (req, res) => {
+  res.json({ message: "Hello from storage app" });
+});
 app.listen(4000, () => {
   console.log(`Server Started`);
 });
