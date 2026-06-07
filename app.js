@@ -17,13 +17,26 @@ await connectDB();
 const app = express();
 app.use(cookieParser(process.env.COOKIE_SIGNER));
 app.use(express.json());
+const allowedOrigins = [
+  "http://localhost:5173",
+  process.env.CLIENT_URL_1,
+  process.env.CLIENT_URL_2,
+];
 app.use(
   cors({
-    origin: process.env.VITE_FRONTEND,
+    origin: function (origin, callback) {
+      // allow requests without origin (Postman, mobile apps, curl)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   }),
 );
-
 app.use("/directory", checkAuth, directoryRoutes);
 app.use("/file", checkAuth, fileRoutes);
 app.use("/user", userRoutes);
