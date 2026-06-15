@@ -47,6 +47,11 @@ app.use("/subscription", checkAuth, subscriptionRoutes);
 app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: "Something went wrong!" });
 });
+app.get("/health", (req, res) => {
+  res.json({
+    status: "CI/CD working",
+  });
+});
 app.get("/", (req, res) => {
   res.json({ message: "Hello from storage app" });
 });
