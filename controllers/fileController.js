@@ -101,6 +101,12 @@ export const deleteFile = async (req, res, next) => {
 
     await incrementDirectorySize(fileData.parentDirId, -fileData.size);
     await File.deleteOne({ _id: id });
+    try {
+      const user = User.findById(user._id);
+      console.log(user);
+    } catch (error) {
+      console.log(error);
+    }
     return res.status(200).json({ message: "File deleted" });
   } catch (err) {
     console.log(error.message);

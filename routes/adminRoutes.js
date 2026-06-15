@@ -10,7 +10,22 @@ import {
 
 const router = express.Router();
 
-router.get("/users", checkAuth, getAllUsersAdmin);
+router.get(
+  "/users",
+  checkAuth,
+  (req, res, next) => {
+    if (req.user.role === "User") {
+      console.log("User is not authorized for this page");
+
+      return res.status(403).json({
+        message: "Access denied. Admin and Manger only",
+      });
+    }
+
+    next();
+  },
+  getAllUsersAdmin,
+);
 router.post("/users/:userId/logout", checkAuth, forceUserLogout);
 router.delete("/users/:id/delete", checkAuth, deleteUser);
 router.patch("/users/:id/deactivate", checkAuth, deactivateUser);

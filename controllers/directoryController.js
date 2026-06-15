@@ -2,11 +2,13 @@ import { rm } from "fs/promises";
 import Directory from "../models/directoryModel.js";
 import File from "../models/fileModel.js";
 import { deleteS3Files } from "../config/s3.js";
+import { error } from "console";
 
 export const getDirectory = async (req, res) => {
   const user = req.user;
 
   const _id = req.params.id || user.rootDirId.toString();
+
   const directoryData = await Directory.findOne({
     _id,
     userId: user._id,
@@ -20,20 +22,27 @@ export const getDirectory = async (req, res) => {
   const directories = await Directory.find({
     parentDirId: directoryData._id,
   }).lean();
-
   return res.status(200).json({
     ...directoryData,
 
-    files: files.map((f) => ({ ...f, id: f._id })),
-    directories: directories.map((d) => ({ ...d, id: d._id })),
+    files: files.map((f) => ({
+      ...f,
+      id: f._id,
+    })),
+
+    directories: directories.map((d) => ({
+      ...d,
+      id: d._id,
+    })),
   });
+  return res.status(200).json(response);
 };
 
 export const createDirectory = async (req, res, next) => {
   const user = req.user;
   const parentDirId = req.params.parentDirId || user.rootDirId.toString();
   const dirname = req.headers.dirname || "New Folder";
-
+  console.log(user, parentDirId, dirname);
   try {
     const parentDir = await Directory.findOne({
       _id: parentDirId,
@@ -54,6 +63,7 @@ export const createDirectory = async (req, res, next) => {
     next(err);
   }
 };
+
 export const renameDirectory = async (req, res, next) => {
   const user = req.user;
   const { id } = req.params;
@@ -65,7 +75,6 @@ export const renameDirectory = async (req, res, next) => {
       { name: newDirName },
       { new: true },
     );
-
     if (!result)
       return res
         .status(404)
@@ -115,16 +124,17 @@ export const deleteDirectory = async (req, res, next) => {
     const keys = files.map(({ _id, extension }) => ({
       Key: `${_id}${extension}`,
     }));
+    if (keys.length > 0) {
+      await deleteS3Files(keys);
+    }
     console.log(keys);
-    await deleteS3Files(keys);
     await File.deleteMany({ _id: { $in: files.map((f) => f._id) } });
 
     await Directory.deleteMany({
       _id: { $in: [...directories.map((d) => d._id), id] },
     });
-
     return res.json({ message: "Directory deleted" });
   } catch (err) {
-    next(err);
+    console.log(err);
   }
 };

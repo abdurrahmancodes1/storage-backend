@@ -76,12 +76,13 @@ export const deleteS3File = async (key) => {
 };
 
 export const deleteS3Files = async (keys) => {
+  if (!keys || keys.length === 0) return;
   const command = new DeleteObjectsCommand({
     Bucket: process.env.AWS_BUCKET,
     Delete: {
       Objects: keys,
+      Quiet: false,
     },
-    Quiet: false,
   });
   return await s3Client.send(command);
 };
@@ -101,8 +102,8 @@ export const deleteS3FilesByAdmin = async (id) => {
         Delete: {
           Objects: listResponse.Contents.map((obj) => ({
             Key: obj.Key,
+            Quiet: true,
           })),
-          Quiet: true,
         },
       });
       await s3Client.send(deleteCommand);

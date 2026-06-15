@@ -163,12 +163,12 @@ export const login = async (req, res) => {
 
   const user = await User.findOne({ email }).lean();
   if (!user) {
-    return res.status(404).json({ error: "Invalid credentials" });
+    return res.status(401).json({ error: "Invalid credentials" });
   }
   const isPasswordValid = await bcrypt.compare(password, user.password);
 
   if (!isPasswordValid) {
-    return res.status(404).json({ error: "Invalid credentials" });
+    return res.status(401).json({ error: "Invalid credentials" });
   }
 
   const sessionId = crypto.randomUUID();
