@@ -3,6 +3,7 @@ import { deleteS3FilesByAdmin } from "../config/s3.js";
 import Directory from "../models/directoryModel.js";
 import File from "../models/fileModel.js";
 import User from "../models/userModel.js";
+import { cleanUserSessions } from "../utils/cleanUserSession.js";
 
 export const getAllUsersAdmin = async (req, res) => {
   try {
@@ -31,17 +32,7 @@ export const getAllUsersAdmin = async (req, res) => {
 export const forceUserLogout = async (req, res) => {
   try {
     const { userId } = req.params;
-    const sessionIds = await redisClient.sMembers(`user_sesion:${userId}`);
-    if (!sessionIds || sessionIds.length === 0) {
-      return res.json({
-        message: "User has not active sessions",
-      });
-    }
-    console.log(sessionIds);
-    for (const sessionId of sessionIds) {
-      await redisClient.del(`session:${sessionId}`);
-    }
-    await redisClient.del(`user_sesion:${userId}`);
+    await cleanUserSessions(userId);
     return res.json({
       success: true,
       message: "User logged out from all devices",
@@ -58,14 +49,7 @@ export const deleteUser = async (req, res) => {
 
   try {
     await deleteS3FilesByAdmin(id);
-    const sessionIds = await redisClient.sMembers(`user_sesion:${id}`);
-
-    console.log(sessionIds);
-    for (const sessionId of sessionIds) {
-      await redisClient.del(`session:${sessionId}`);
-    }
-    await redisClient.del(`user_sesion:${id}`);
-
+    await cleanUserSessions(id);
     await User.findByIdAndDelete(id);
     await File.deleteMany({ userId: id });
     await Directory.deleteMany({ userId: id });
@@ -81,13 +65,56 @@ export const deleteUser = async (req, res) => {
 
 export const deactivateUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, { deleted: true });
+    const { id } = req.params;
+    const user = await User.findByIdAndUpdate(id, {
+      deleted: true,
+      deletedAt: new Date(),
+    });
+    await cleanUserSessions(id);
+    const sessions = await redisClient.sMembers(`user_session:${id}`);
     return res.json({
       message: "Account deactivated",
     });
-  } catch (error) {}
+  } catch (error) {
+    res.status(401).json({
+      success: false,
+      message: "Error in disbaling account",
+    });
+  }
 };
+export const reactivateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
 
+    const user = await User.findByIdAndUpdate(
+      id,
+      {
+        deleted: false,
+        deletedAt: null,
+      },
+      {
+        new: true,
+      },
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "User reactivated successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
 export const changeRole = async (req, res) => {
   try {
     const id = req.params.id;
@@ -100,7 +127,15 @@ export const changeRole = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+    const keys = await redisClient.keys("session:*");
 
+    for (const key of keys) {
+      const session = await redisClient.json.get(key);
+
+      if (session?.user?._id === id) {
+        await redisClient.del(key);
+      }
+    }
     res.status(200).json({
       message: "Role updated successfully",
     });

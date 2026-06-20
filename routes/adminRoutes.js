@@ -1,5 +1,7 @@
 import express from "express";
 import checkAuth from "../middlewares/authMiddleware.js";
+import { authorizeRoles } from "../middlewares/roleMiddleware.js";
+
 import {
   changeRole,
   deactivateUser,
@@ -10,56 +12,44 @@ import {
 
 const router = express.Router();
 
+// Admin + Manager
 router.get(
   "/users",
   checkAuth,
-  (req, res, next) => {
-    if (req.user.role === "User") {
-      console.log("User is not authorized for this page");
-
-      return res.status(403).json({
-        message: "Access denied. Admin and Manger only",
-      });
-    }
-
-    next();
-  },
+  authorizeRoles("Admin", "Manager"),
   getAllUsersAdmin,
 );
-router.post("/users/:userId/logout", checkAuth, forceUserLogout);
-router.delete("/users/:id/delete", checkAuth, deleteUser);
-router.patch("/users/:id/deactivate", checkAuth, deactivateUser);
-router.patch("/users/:id/change-role", checkAuth, changeRole);
 
-// router.post(
-//   "/users/:id/logout",
-//   checkAuth,
-//   (req, res, next) => {
-//     if (req.user.role !== "User") {
-//       console.log(req.user.role);
-//       return next();
-//     }
-//     res.status(403).json({
-//       success: false,
-//       message: "You can not access this page",
-//     });
-//   },
-//   logoutAllUsers,
-// );
+// Admin + Manager
+router.post(
+  "/users/:userId/logout",
+  checkAuth,
+  authorizeRoles("Admin", "Manager"),
+  forceUserLogout,
+);
 
-// router.delete(
-//   "/users/:id/delete",
-//   checkAuth,
-//   (req, res, next) => {
-//     if (req.user.role === "Admin") {
-//       return next();
-//     }
-//     res.status(403).json({
-//       success: false,
-//       message: "You can not access this page",
-//     });
-//   },
-//   deleteUser,
-// );
+// only Admin hard delete
+router.delete(
+  "/users/:id/delete",
+  checkAuth,
+  authorizeRoles("Admin"),
+  deleteUser,
+);
+
+// Admin + Manager soft delete
+router.patch(
+  "/users/:id/deactivate",
+  checkAuth,
+  authorizeRoles("Admin", "Manager"),
+  deactivateUser,
+);
+
+// Admin + Manager
+router.patch(
+  "/users/:id/change-role",
+  checkAuth,
+  authorizeRoles("Admin", "Manager"),
+  changeRole,
+);
 
 export default router;

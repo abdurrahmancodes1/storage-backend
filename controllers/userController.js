@@ -162,8 +162,15 @@ export const login = async (req, res) => {
   const { email, password } = data;
 
   const user = await User.findOne({ email }).lean();
+
   if (!user) {
     return res.status(401).json({ error: "Invalid credentials" });
+  }
+  if (user.deleted) {
+    return res.status(403).json({
+      success: false,
+      message: "Account Disabled",
+    });
   }
   const isPasswordValid = await bcrypt.compare(password, user.password);
 
