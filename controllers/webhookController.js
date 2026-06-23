@@ -3,55 +3,79 @@ import Subscription from "../models/subscriptionModel.js";
 import User from "../models/userModel.js";
 
 export const PLANS = {
-  plan_SF6yH3NknwSNU2: {
-    storageQuotaBytes: 1 * 1024 * 1024 * 1024,
+  // Monthly Starter - 500 MB
+  plan_T4wmQjED9Pmc5M: {
+    storageQuotaBytes: 500 * 1024 * 1024,
+  },
+
+  // Monthly Pro - 2 GB
+  plan_T4wnHOVroQPyZA: {
+    storageQuotaBytes: 2 * 1024 * 1024 * 1024,
+  },
+
+  // Yearly Starter - 500 MB
+  plan_T4wtL2ZZ61pN10: {
+    storageQuotaBytes: 500 * 1024 * 1024,
+  },
+
+  // Yearly Pro - 2 GB
+  plan_T4ws4Ajz45xKH6: {
+    storageQuotaBytes: 2 * 1024 * 1024 * 1024,
   },
 };
 
-// export const handleRazorpaywebhook = async (req, res) => {
-//   // const signature = req.headers["x-razorpay-signature"];
-//   // const isSignatureValid = Razorpay.validateWebhookSignature(
-//   //   JSON.stringify(req.body),
-//   //   signature,
-//   //   process.env.RAZORPAY_WEBHOOK_KEY,
-//   // );
-//   // if (isSignatureValid) {
-//   //   console.log(isSignatureValid, ",valid");
-//   //   console.log(req.body);
-//   //   console.log(req.body.payload.subscription);
-
-//   //   if (req.body.event === "subscription.activated") {
-//   //     const rzpSubscription = req.body.payload.subscription.entity;
-//   //     const planId = rzpSubscription.plan_id;
-//   //     const subscription = await Subscription.findOne({
-//   //       razorpaySubscriptionId: rzpSubscription.id,
-//   //     });
-//   //     subscription.status = rzpSubscription.status;
-//   //     await subscription.save();
-//   //     const storageQuotaBytes = PLANS[planId].storageQuotaBytes;
-//   //     const user = await User.findById(subscription.userId);
-//   //     user.maxStorageLimit = storageQuotaBytes;
-//   //     user.save();
-//   //     console.log("subscription activated");
-//   //   }
-//   // } else {
-//   //   console.log("NOt verified");
-//   // }
-//   // console.log(req.body);
-//   try {
-//     res.status(200).json({
-//       success: true,
-//       message: "dkhdklfhl",
-//     });
-//   } catch (error) {
-//     console.log(error);
-//   }
-// };
 export const handleRazorpaywebhook = async (req, res) => {
-  console.log("Razorpay webhook hit");
+  try {
+    const signature = req.headers["x-razorpay-signature"];
 
-  return res.status(200).json({
-    success: true,
-    message: "Webhook received",
-  });
+    const isSignatureValid = Razorpay.validateWebhookSignature(
+      JSON.stringify(req.body),
+      signature,
+      process.env.RAZORPAY_WEBHOOK_KEY,
+    );
+
+    if (!isSignatureValid) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid webhook signature",
+      });
+    }
+
+    if (req.body.event === "subscription.activated") {
+      const rzpSubscription = req.body.payload.subscription.entity;
+
+      const subscription = await Subscription.findOne({
+        razorpaySubscriptionId: rzpSubscription.id,
+      });
+
+      if (!subscription) {
+        return res.status(404).json({
+          success: false,
+          message: "Subscription not found",
+        });
+      }
+
+      subscription.status = rzpSubscription.status;
+      await subscription.save();
+
+      const storageQuotaBytes =
+        PLANS[rzpSubscription.plan_id].storageQuotaBytes;
+
+      await User.findByIdAndUpdate(subscription.userId, {
+        maxStorageLimit: storageQuotaBytes,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Webhook processed successfully",
+    });
+  } catch (error) {
+    console.error("Webhook Error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Webhook processing failed",
+    });
+  }
 };
