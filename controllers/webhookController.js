@@ -24,58 +24,80 @@ export const PLANS = {
   },
 };
 
+// export const handleRazorpaywebhook = async (req, res) => {
+//   try {
+//     const signature = req.headers["x-razorpay-signature"];
+
+//     const isSignatureValid = Razorpay.validateWebhookSignature(
+//       JSON.stringify(req.body),
+//       signature,
+//       process.env.RAZORPAY_WEBHOOK_KEY,
+//     );
+
+//     if (!isSignatureValid) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid webhook signature",
+//       });
+//     }
+
+//     if (req.body.event === "subscription.activated") {
+//       const rzpSubscription = req.body.payload.subscription.entity;
+
+//       const subscription = await Subscription.findOne({
+//         razorpaySubscriptionId: rzpSubscription.id,
+//       });
+
+//       if (!subscription) {
+//         return res.status(404).json({
+//           success: false,
+//           message: "Subscription not found",
+//         });
+//       }
+
+//       subscription.status = rzpSubscription.status;
+//       await subscription.save();
+
+//       const storageQuotaBytes =
+//         PLANS[rzpSubscription.plan_id].storageQuotaBytes;
+
+//       await User.findByIdAndUpdate(subscription.userId, {
+//         maxStorageLimit: storageQuotaBytes,
+//       });
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Webhook processed successfully",
+//     });
+//   } catch (error) {
+//     console.error("Webhook Error:", error.message);
+
+//     return res.status(500).json({
+//       success: false,
+//       message: "Webhook processing failed",
+//     });
+//   }
+// };
 export const handleRazorpaywebhook = async (req, res) => {
-  try {
-    const signature = req.headers["x-razorpay-signature"];
+  console.log("Razorpay webhook hit");
+  console.log("EVENT:", req.body.event);
 
-    const isSignatureValid = Razorpay.validateWebhookSignature(
-      JSON.stringify(req.body),
-      signature,
-      process.env.RAZORPAY_WEBHOOK_KEY,
-    );
+  const signature = req.headers["x-razorpay-signature"];
 
-    if (!isSignatureValid) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid webhook signature",
-      });
-    }
+  const isSignatureValid = Razorpay.validateWebhookSignature(
+    JSON.stringify(req.body),
+    signature,
+    process.env.RAZORPAY_WEBHOOK_KEY,
+  );
 
-    if (req.body.event === "subscription.activated") {
-      const rzpSubscription = req.body.payload.subscription.entity;
+  console.log("SIGNATURE:", isSignatureValid);
 
-      const subscription = await Subscription.findOne({
-        razorpaySubscriptionId: rzpSubscription.id,
-      });
+  if (req.body.payload?.subscription) {
+    console.log("SUB:", req.body.payload.subscription.entity.id);
 
-      if (!subscription) {
-        return res.status(404).json({
-          success: false,
-          message: "Subscription not found",
-        });
-      }
-
-      subscription.status = rzpSubscription.status;
-      await subscription.save();
-
-      const storageQuotaBytes =
-        PLANS[rzpSubscription.plan_id].storageQuotaBytes;
-
-      await User.findByIdAndUpdate(subscription.userId, {
-        maxStorageLimit: storageQuotaBytes,
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Webhook processed successfully",
-    });
-  } catch (error) {
-    console.error("Webhook Error:", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: "Webhook processing failed",
-    });
+    console.log("STATUS:", req.body.payload.subscription.entity.status);
   }
+
+  res.sendStatus(200);
 };
