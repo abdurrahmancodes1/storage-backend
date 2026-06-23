@@ -7,11 +7,12 @@ const rzpInstance = new Razorpay({
 });
 
 export const createSubscription = async (req, res) => {
-  console.log(req.body);
+  console.log(req.body, "yes");
+
   try {
     const newSubscription = await rzpInstance.subscriptions.create({
       plan_id: req.body.planId,
-      total_count: 120,
+      total_count: 12,
       notes: {
         userId: req.user._id,
       },
