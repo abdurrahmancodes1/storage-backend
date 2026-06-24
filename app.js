@@ -16,6 +16,8 @@ await connectDB();
 
 const app = express();
 app.use(cookieParser(process.env.COOKIE_SIGNER));
+app.use("/webhooks", express.raw({ type: "application/json" }), webhooksRoutes);
+
 app.use(express.json());
 const allowedOrigins = [
   "http://localhost:5173",
@@ -40,7 +42,6 @@ app.use(
 app.use("/directory", checkAuth, directoryRoutes);
 app.use("/file", checkAuth, fileRoutes);
 app.use("/user", userRoutes);
-app.use("/webhooks", webhooksRoutes);
 app.use("/admin", adminRoutes);
 app.use("/api/drive", checkAuth, driveRoutes);
 app.use("/subscription", checkAuth, subscriptionRoutes);
