@@ -79,25 +79,76 @@ export const PLANS = {
 //     });
 //   }
 // };
+// export const handleRazorpaywebhook = async (req, res) => {
+//   console.log("Razorpay webhook hit");
+//   console.log("EVENT:", req.body.event);
+
+//   const signature = req.headers["x-razorpay-signature"];
+
+//   const isSignatureValid = Razorpay.validateWebhookSignature(
+//     req.body.toString(),
+//     signature,
+//     process.env.RAZORPAY_WEBHOOK_KEY,
+//   );
+
+//   console.log("SIGNATURE:", isSignatureValid);
+
+//   if (req.body.payload?.subscription) {
+//     console.log("SUB:", req.body.payload.subscription.entity.id);
+
+//     console.log("STATUS:", req.body.payload.subscription.entity.status);
+//   }
+
+//   res.sendStatus(200);
+// };
 export const handleRazorpaywebhook = async (req, res) => {
-  console.log("Razorpay webhook hit");
-  console.log("EVENT:", req.body.event);
+  try {
+    console.log("Razorpay webhook hit");
 
-  const signature = req.headers["x-razorpay-signature"];
+    const signature = req.headers["x-razorpay-signature"];
 
-  const isSignatureValid = Razorpay.validateWebhookSignature(
-    req.body.toString(),
-    signature,
-    process.env.RAZORPAY_WEBHOOK_KEY,
-  );
+    const isSignatureValid = Razorpay.validateWebhookSignature(
+      req.body.toString(),
+      signature,
+      process.env.RAZORPAY_WEBHOOK_KEY,
+    );
 
-  console.log("SIGNATURE:", isSignatureValid);
+    console.log("SIGNATURE:", isSignatureValid);
 
-  if (req.body.payload?.subscription) {
-    console.log("SUB:", req.body.payload.subscription.entity.id);
+    if (!isSignatureValid) {
+      return res.sendStatus(400);
+    }
 
-    console.log("STATUS:", req.body.payload.subscription.entity.status);
+    const body = JSON.parse(req.body.toString());
+
+    console.log("EVENT:", body.event);
+
+    if (body.event === "subscription.activated") {
+      const rzpSubscription = body.payload.subscription.entity;
+
+      console.log("SUB:", rzpSubscription.id);
+      console.log("STATUS:", rzpSubscription.status);
+
+      const subscription = await Subscription.findOne({
+        razorpaySubscriptionId: rzpSubscription.id,
+      });
+
+      subscription.status = rzpSubscription.status;
+      await subscription.save();
+
+      const storageQuotaBytes =
+        PLANS[rzpSubscription.plan_id].storageQuotaBytes;
+
+      await User.findByIdAndUpdate(subscription.userId, {
+        maxStorageLimit: storageQuotaBytes,
+      });
+
+      console.log("Subscription updated");
+    }
+
+    return res.sendStatus(200);
+  } catch (err) {
+    console.log(err);
+    return res.sendStatus(500);
   }
-
-  res.sendStatus(200);
 };
