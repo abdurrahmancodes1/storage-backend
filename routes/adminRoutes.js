@@ -12,7 +12,6 @@ import {
 
 const router = express.Router();
 
-// Admin + Manager
 router.get(
   "/users",
   checkAuth,
@@ -20,7 +19,6 @@ router.get(
   getAllUsersAdmin,
 );
 
-// Admin + Manager
 router.post(
   "/users/:userId/logout",
   checkAuth,
@@ -28,7 +26,6 @@ router.post(
   forceUserLogout,
 );
 
-// only Admin hard delete
 router.delete(
   "/users/:id/delete",
   checkAuth,
@@ -36,7 +33,6 @@ router.delete(
   deleteUser,
 );
 
-// Admin + Manager soft delete
 router.patch(
   "/users/:id/deactivate",
   checkAuth,
@@ -44,7 +40,6 @@ router.patch(
   deactivateUser,
 );
 
-// Admin + Manager
 router.patch(
   "/users/:id/change-role",
   checkAuth,

@@ -3,6 +3,7 @@ import Directory from "../models/directoryModel.js";
 import File from "../models/fileModel.js";
 import { deleteS3Files } from "../config/s3.js";
 import { error } from "console";
+import User from "../models/userModel.js";
 
 export const getDirectory = async (req, res) => {
   const user = req.user;
@@ -103,7 +104,7 @@ export const deleteDirectory = async (req, res, next) => {
 
     async function getDirectoryContents(dirId) {
       let files = await File.find({ parentDirId: dirId })
-        .select("_id extension")
+        .select("_id extension size")
         .lean();
 
       let directories = await Directory.find({ parentDirId: dirId })
@@ -124,6 +125,7 @@ export const deleteDirectory = async (req, res, next) => {
     const keys = files.map(({ _id, extension }) => ({
       Key: `${_id}${extension}`,
     }));
+    const totalDeletedSize = files.reduce((acc, file) => acc + file.size, 0);
     if (keys.length > 0) {
       await deleteS3Files(keys);
     }
@@ -133,6 +135,14 @@ export const deleteDirectory = async (req, res, next) => {
     await Directory.deleteMany({
       _id: { $in: [...directories.map((d) => d._id), id] },
     });
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $inc: {
+          usedStorage: -totalDeletedSize,
+        },
+      },
+    );
     return res.json({ message: "Directory deleted" });
   } catch (err) {
     console.log(err);

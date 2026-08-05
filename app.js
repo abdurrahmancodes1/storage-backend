@@ -43,7 +43,6 @@ app.use("/directory", checkAuth, directoryRoutes);
 app.use("/file", checkAuth, fileRoutes);
 app.use("/user", userRoutes);
 app.use("/admin", adminRoutes);
-app.use("/api/drive", checkAuth, driveRoutes);
 app.use("/subscription", checkAuth, subscriptionRoutes);
 app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: "Something went wrong!" });

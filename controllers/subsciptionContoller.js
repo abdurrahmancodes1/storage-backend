@@ -10,6 +10,18 @@ export const createSubscription = async (req, res) => {
   console.log(req.body, "yes");
 
   try {
+    const existingSubscription = await Subscription.findOne({
+      userId: req.user._id,
+      planId: req.body.planId,
+      status: "active",
+    });
+
+    if (existingSubscription) {
+      res.status(400).json({
+        success: false,
+        message: "You already have this plan active",
+      });
+    }
     const newSubscription = await rzpInstance.subscriptions.create({
       plan_id: req.body.planId,
       total_count: 12,
@@ -20,6 +32,7 @@ export const createSubscription = async (req, res) => {
     const subscription = new Subscription({
       razorpaySubscriptionId: newSubscription.id,
       userId: req.user._id,
+      planId: req.body.planId,
     });
     await subscription.save();
     return res.json({ subscriptionId: newSubscription.id });
@@ -27,4 +40,3 @@ export const createSubscription = async (req, res) => {
     console.log(error);
   }
 };
-// RAZORPAY_KEY_SECRET=

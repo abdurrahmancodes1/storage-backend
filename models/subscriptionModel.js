@@ -13,6 +13,7 @@ const subscriptionSchema = new mongoose.Schema(
 
       required: true,
     },
+    planId: String,
     status: {
       type: String,
       enum: [
