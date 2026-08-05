@@ -1,0 +1,13 @@
+services:
+  backend:
+    build: .
+
+    container_name: storage-backend
+
+    ports:
+      - "4000:4000"
+
+    env_file:
+      - .env
+
+    restart: unless-stopped
