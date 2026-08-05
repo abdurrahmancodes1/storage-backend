@@ -1,6 +1,6 @@
 services:
   backend:
-    build: .
+    image: abdurrahmancodes/storage-backend:latest
 
     container_name: storage-backend
 
