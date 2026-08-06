@@ -52,7 +52,7 @@ app.get("/health", (req, res) => {
     status: "CI/CD working",
   });
 });
-console.log("Testing watchtower");
+console.log("Testing watchtower again 2");
 app.get("/", (req, res) => {
   res.json({ message: "Hello from storage app" });
 });
