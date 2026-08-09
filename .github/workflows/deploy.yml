@@ -25,10 +25,15 @@ jobs:
           context: .
           push: true
           tags: abdurrahmancodes/storage-backend:latest
-      - name: Check SSH key format
-        shell: bash
-        env:
-          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-        run: |
-          echo "$SSH_KEY" | head -n 1
-          echo "$SSH_KEY" | tail -n 1
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/storage-backend
+            docker compose pull
+            docker compose up -d
+            docker image prune -f
