@@ -47,14 +47,12 @@ app.use("/subscription", checkAuth, subscriptionRoutes);
 app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: "Something went wrong!" });
 });
-app.get("/health", (req, res) => {
-  res.json({
-    status: "CI/CD working",
-  });
-});
+
 console.log("Testing watchtower again 2");
 app.get("/", (req, res) => {
-  res.json({ message: "Hello from storage app" });
+  res.json({
+    message: "Hello from storage app chekcing ci cd working or not ",
+  });
 });
 app.listen(4000, () => {
   console.log(`Server Started`);

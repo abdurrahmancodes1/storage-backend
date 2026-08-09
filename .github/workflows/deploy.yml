@@ -1,4 +1,4 @@
-name: Build Backend
+name: Build and Deploy Backend
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,3 +25,15 @@ jobs:
           context: .
           push: true
           tags: abdurrahmancodes/storage-backend:latest
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/storage-backend
+            docker compose pull
+            docker compose up -d
+            docker image prune -f
