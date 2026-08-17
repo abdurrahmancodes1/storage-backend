@@ -39,7 +39,7 @@ export const getFile = async (req, res) => {
 
   if (req.query.action === "download") {
     const fileUrl = createCloudFrontGetSignedUrl({
-      key: `${id}/${fileData.extension}`,
+      key: `${user._id}/${id}${fileData.extension}`,
       download: true,
       filename: fileData.name,
     });
