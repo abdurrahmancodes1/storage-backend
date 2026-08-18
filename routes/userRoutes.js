@@ -3,11 +3,13 @@ import checkAuth from "../middlewares/authMiddleware.js";
 import {
   getAllUsers,
   getCurrentUser,
+  getPubliccShare,
   login,
   loginWithGoogle,
   logout,
   logoutAll,
   register,
+  revokePublicShare,
   sharedWith,
   sharedWithMe,
   sharePublic,
@@ -29,5 +31,8 @@ router.get("/users", checkAuth, getAllUsers);
 
 router.post("/share", checkAuth, sharedWith);
 router.get("/share/me", checkAuth, sharedWithMe);
-router.get("/share/public", checkAuth, sharePublic);
+router.post("/share/public", checkAuth, sharePublic);
+router.get("/share/public/:fileId", checkAuth, getPubliccShare);
+router.patch("/share/public/revoke", checkAuth, revokePublicShare);
+
 export default router;

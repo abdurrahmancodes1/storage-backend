@@ -37,20 +37,21 @@ export const getFile = async (req, res) => {
 
   if (!fileData) return res.status(404).json({ error: "File not found" });
 
-  if (req.query.action === "download") {
-    const fileUrl = createCloudFrontGetSignedUrl({
-      key: `${user._id}/${id}${fileData.extension}`,
-      download: true,
-      filename: fileData.name,
-    });
-    return res.redirect(fileUrl);
-  }
-  console.log("I am called bro");
   const fileUrl = createCloudFrontGetSignedUrl({
     key: `${user._id}/${id}${fileData.extension}`,
+    download: req.query.action === "download",
     filename: fileData.name,
   });
-  return res.redirect(fileUrl);
+  if (req.query.action === "download") {
+    return res.redirect(fileUrl);
+  }
+  if (req.query.action === "preview") {
+    return res.json({
+      url: fileUrl,
+      name: fileData.name,
+      extension: fileData.extension,
+    });
+  }
 };
 
 export const renameFile = async (req, res, next) => {
@@ -217,4 +218,51 @@ export const uploadComplete = async (req, res, next) => {
     });
   }
   console.log(req.body);
+};
+
+export const getPublicFile = async (req, res) => {
+  const { token } = req.params;
+  try {
+    const file = await File.findOne({
+      "publicShare.token": token,
+      "publicShare.enabled": true,
+    }).lean();
+    if (!file) {
+      return res.status(404).json({
+        message: "Shared file not found or link has been revoked",
+      });
+    }
+    if (
+      file?.publicShare?.expiresAt &&
+      new Date(file?.publicShare?.expiresAt) < new Date()
+    ) {
+      return res.status(410).json({
+        success: false,
+        message: "This share link has expired",
+      });
+    }
+    const isDownload = req.query.action === "download";
+    const fileUrl = createCloudFrontGetSignedUrl({
+      key: `${file.userId}/${file._id}${file.extension}`,
+      download: isDownload,
+      filename: isDownload ? file.name : undefined,
+    });
+    if (isDownload) {
+      return res.redirect(fileUrl);
+    }
+    return res.status(200).json({
+      success: true,
+      url: fileUrl,
+      name: file.name,
+      extension: file.extension,
+      size: file.size,
+      permission: file.parentShare?.permission || "view",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed tp access shared file",
+    });
+  }
 };

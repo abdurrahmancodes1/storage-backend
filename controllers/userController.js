@@ -378,8 +378,106 @@ export const sharedWithMe = async (req, res) => {
     });
   }
 };
-
 export const sharePublic = async (req, res) => {
   const user = req.user;
-  console.log("Generate Public Share");
+  console.log(user._id.toString());
+  const { fileId } = req.body;
+  try {
+    const file = await File.findById(fileId);
+    if (!file) {
+      return res.status(404).json({
+        message: "File not found",
+      });
+    }
+    if (file.userId.toString() !== user._id.toString()) {
+      console.log(file.userId.toString());
+      return res.status(403).json({
+        message: "Not Authorized",
+      });
+    }
+    const token = crypto.randomBytes(32).toString("hex");
+    file.publicShare = {
+      enabled: true,
+      token,
+      permission: "view",
+      expiresAt: null,
+    };
+    await file.save();
+    const shareUrl = `${process.env.CLIENT_URL || "http://localhost:5173"}/share/${token}`;
+    return res.status(200).json({
+      message: "Public sharing enabled",
+      shareUrl,
+    });
+  } catch (error) {
+    console.error("Public share error:", error);
+
+    return res.status(500).json({
+      message: "Failed to create public share link",
+    });
+  }
+};
+
+export const getPubliccShare = async (req, res) => {
+  const { fileId } = req.params;
+  try {
+    const file = await File.findOne({
+      _id: fileId,
+      userId: req.user._id,
+    }).lean();
+    if (!file) {
+      return res.status(404).json({
+        message: "File not found",
+      });
+    }
+    if (!file.publicShare?.enabled || !file.publicShare?.token) {
+      return res.json({
+        enabled: false,
+        shareUrl: null,
+      });
+    }
+
+    const shareUrl = `${process.env.CLIENT_URL || "http://localhost:5173/"}share/${file.publicShare.token}`;
+    return res.json({
+      enabled: true,
+      shareUrl,
+      permission: file.publicShare.permission || "view",
+      expiresAt: file.publicShare.expiresAt,
+    });
+  } catch (error) {
+    console.error("Get public share error:", error);
+
+    return res.status(500).json({
+      message: "Failed to get public share",
+    });
+  }
+};
+export const revokePublicShare = async (req, res) => {
+  const { fileId } = req.body;
+
+  try {
+    const file = await File.findOne({
+      _id: fileId,
+      userId: req.user._id,
+    });
+
+    if (!file) {
+      return res.status(404).json({
+        message: "File not found",
+      });
+    }
+
+    file.publicShare.enabled = false;
+
+    await file.save();
+
+    return res.status(200).json({
+      message: "Public link revoked",
+    });
+  } catch (error) {
+    console.error("Revoke public share error:", error);
+
+    return res.status(500).json({
+      message: "Failed to revoke public share",
+    });
+  }
 };

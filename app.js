@@ -10,6 +10,7 @@ import driveRoutes from "./routes/driveRoutes.js";
 import subscriptionRoutes from "./routes/subscriptionRoute.js";
 import checkAuth from "./middlewares/authMiddleware.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import shareRoutes from "./routes/shareRoutes.js";
 import { connectDB } from "./config/mongoose.js";
 import webhooksRoutes from "./routes/webhookRoutes.js";
 await connectDB();
@@ -43,6 +44,7 @@ app.use("/directory", checkAuth, directoryRoutes);
 app.use("/file", checkAuth, fileRoutes);
 app.use("/user", userRoutes);
 app.use("/admin", adminRoutes);
+app.use("/share", shareRoutes);
 app.use("/subscription", checkAuth, subscriptionRoutes);
 app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: "Something went wrong!" });

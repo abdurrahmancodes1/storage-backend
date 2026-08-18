@@ -3,6 +3,7 @@ import validateIdMiddleware from "../middlewares/validateIdMiddleware.js";
 import {
   deleteFile,
   getFile,
+  getPublicFile,
   renameFile,
   uploadComplete,
   uploadInitiate,
@@ -17,7 +18,6 @@ router.param("id", validateIdMiddleware);
 router.get("/:id", getFile);
 
 router.patch("/:id", renameFile);
-
 router.delete("/:id", deleteFile);
 
 export default router;

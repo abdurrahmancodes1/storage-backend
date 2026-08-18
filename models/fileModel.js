@@ -14,6 +14,24 @@ const fileSchema = new Schema(
         permission: { type: String, default: "view" },
       },
     ],
+    publicShare: {
+      enabled: {
+        type: Boolean,
+        default: false,
+      },
+      token: {
+        type: String,
+        default: null,
+      },
+      permission: {
+        type: String,
+        default: "view",
+      },
+      expiresAt: {
+        type: Date,
+        default: null,
+      },
+    },
   },
   { timestamps: true, strict: "throw" },
 );
