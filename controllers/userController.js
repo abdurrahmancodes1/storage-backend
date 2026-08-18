@@ -403,7 +403,7 @@ export const sharePublic = async (req, res) => {
       expiresAt: null,
     };
     await file.save();
-    const shareUrl = `${process.env.CLIENT_URL || "http://localhost:5173"}/share/${token}`;
+    const shareUrl = `${process.env.CLIENT_URL_1 || "http://localhost:5173"}/share/${token}`;
     return res.status(200).json({
       message: "Public sharing enabled",
       shareUrl,
@@ -436,7 +436,7 @@ export const getPubliccShare = async (req, res) => {
       });
     }
 
-    const shareUrl = `${process.env.CLIENT_URL || "http://localhost:5173/"}share/${file.publicShare.token}`;
+    const shareUrl = `${process.env.CLIENT_URL_1 || "http://localhost:5173"}/share/${file.publicShare.token}`;
     return res.json({
       enabled: true,
       shareUrl,
