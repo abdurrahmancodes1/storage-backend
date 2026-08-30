@@ -620,14 +620,6 @@ The code references the live client domain in environment variables as:
 
 Live demo: https://storvault.xyz
 
-## 19. Future Improvements
-
-Potential improvements, not current features:
-
-- centralize and harden session cleanup logic for all logout paths
-- add explicit API versioning and OpenAPI documentation
-- add stricter file-type validation and antivirus / malware scanning before storing or exposing files
-- add automated test coverage around auth, quotas, and subscription webhook flows
 
 ## Summary
 
