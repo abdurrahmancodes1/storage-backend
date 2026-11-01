@@ -35,6 +35,6 @@ const fileSchema = new Schema(
   },
   { timestamps: true, strict: "throw" },
 );
-
+fileSchema.index({ userId: 1, parentDirId: 1 });
 const File = model("File", fileSchema);
 export default File;

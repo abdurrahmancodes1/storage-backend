@@ -1,21 +1,23 @@
 import "dotenv/config";
 import express from "express";
-
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import directoryRoutes from "./routes/directoryRoutes.js";
 import fileRoutes from "./routes/fileRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
-import driveRoutes from "./routes/driveRoutes.js";
 import subscriptionRoutes from "./routes/subscriptionRoute.js";
 import checkAuth from "./middlewares/authMiddleware.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import shareRoutes from "./routes/shareRoutes.js";
 import { connectDB } from "./config/mongoose.js";
 import webhooksRoutes from "./routes/webhookRoutes.js";
+import rateLimiter from "./middlewares/rateLimiter.js";
+import { success } from "zod";
 await connectDB();
 
 const app = express();
+app.set("trust proxy", 1);
+
 app.use(cookieParser(process.env.COOKIE_SIGNER));
 app.use("/webhooks", express.raw({ type: "application/json" }), webhooksRoutes);
 
@@ -40,14 +42,39 @@ app.use(
     credentials: true,
   }),
 );
-app.use("/directory", checkAuth, directoryRoutes);
-app.use("/file", checkAuth, fileRoutes);
+// app.get("/rate-test", checkAuth, rateLimiter, (req, res) => {
+//   res.json({ message: "Request allowed" });
+// });
+
+app.use(
+  "/directory",
+  checkAuth,
+  rateLimiter({ limit: 30, window: 60 }),
+  directoryRoutes,
+);
+app.use(
+  "/file",
+  checkAuth,
+  rateLimiter({ limit: 100, window: 60 }),
+  fileRoutes,
+);
 app.use("/user", userRoutes);
-app.use("/admin", adminRoutes);
-app.use("/share", shareRoutes);
-app.use("/subscription", checkAuth, subscriptionRoutes);
+app.use("/admin", rateLimiter({ limit: 60, window: 60 }), adminRoutes);
+app.use("/share", rateLimiter({ limit: 30, window: 60 }), shareRoutes);
+app.use(
+  "/subscription",
+  checkAuth,
+  rateLimiter({ limit: 20, window: 60 }),
+  subscriptionRoutes,
+);
 app.use((err, req, res, next) => {
-  res.status(err.status || 500).json({ error: "Something went wrong!" });
+  console.log(err);
+  const statusCode = err.statusCode || 500;
+
+  res.status(statusCode).json({
+    success: false,
+    message: statusCode === 500 ? "Something went wrong" : err.message,
+  });
 });
 
 console.log("Testing watchtower again 2");

@@ -11,6 +11,7 @@ import {
 } from "../config/s3.js";
 import { error } from "console";
 import { createCloudFrontGetSignedUrl } from "../services/cloudfront.js";
+import AppError from "../utils/AppError.js";
 
 export async function incrementDirectorySize(dirId, sizeDelta) {
   let currentDirId = dirId;
@@ -35,7 +36,7 @@ export const getFile = async (req, res) => {
     userId: user._id,
   }).lean();
 
-  if (!fileData) return res.status(404).json({ error: "File not found" });
+  if (!fileData) throw new AppError("File not found", 404);
 
   const fileUrl = createCloudFrontGetSignedUrl({
     key: `${user._id}/${id}${fileData.extension}`,
@@ -64,17 +65,13 @@ export const renameFile = async (req, res, next) => {
     userId: user._id,
   });
 
-  if (!fileData) return res.status(404).json({ error: "File not found" });
+  if (!fileData) throw new AppError("File not found", 404);
 
-  try {
-    fileData.name = newFilename;
-    await fileData.save();
-    return res.status(200).json({ message: "File renamed" });
-  } catch (err) {
-    next(err);
-  }
+  fileData.name = newFilename;
+  await fileData.save();
+  return res.status(200).json({ message: "File renamed" });
 };
-export const deleteFile = async (req, res, next) => {
+export const deleteFile = async (req, res) => {
   const user = req.user;
   const { id } = req.params;
 
@@ -82,187 +79,138 @@ export const deleteFile = async (req, res, next) => {
     _id: id,
     userId: user._id,
   })
-    .select("parentDirId size extension userId")
+    .select("parentDirId size extension userId isUploading")
     .lean();
 
   if (!fileData) {
-    return res.status(404).json({ error: "File not found" });
+    throw new AppError("File not found", 404);
   }
 
-  try {
-    const resp = await deleteS3File(
-      `${user._id}${fileData._id}${fileData.extension}`,
-    );
+  await deleteS3File(`${user._id}/${fileData._id}${fileData.extension}`);
 
-    console.log(resp);
+  if (!fileData.isUploading) {
     await User.updateOne(
       { _id: fileData.userId },
       { $inc: { storageUsed: -fileData.size } },
     );
 
     await incrementDirectorySize(fileData.parentDirId, -fileData.size);
-    await File.deleteOne({ _id: id });
-    try {
-      const user = User.findById(user._id);
-      console.log(user);
-    } catch (error) {
-      console.log(error);
-    }
-    return res.status(200).json({ message: "File deleted" });
-  } catch (err) {
-    console.log(error.message);
   }
+  await File.deleteOne({ _id: id });
+
+  return res.status(200).json({ message: "File deleted" });
 };
 
 export const uploadInitiate = async (req, res) => {
-  console.log(req.body);
-  try {
-    const sessionUser = req.user;
+  const sessionUser = req.user;
 
-    const parentDirId = new mongoose.Types.ObjectId(
-      req.body.parentDirId || sessionUser.rootDirId,
-    );
+  const parentDirId = new mongoose.Types.ObjectId(
+    req.body.parentDirId || sessionUser.rootDirId,
+  );
 
-    const parentDir = await Directory.findOne({
-      _id: parentDirId,
-      userId: sessionUser._id,
-    });
+  const parentDir = await Directory.findOne({
+    _id: parentDirId,
+    userId: sessionUser._id,
+  });
 
-    if (!parentDir) {
-      return res.status(404).json({ error: "Parent directory not found" });
-    }
-
-    const filename = req.body.name || "untitled";
-    const size = Number(req.body.size) || 0;
-    const dbuser = await User.findById(sessionUser._id).select(
-      "storageUsed maxStorageLimit",
-    );
-    if (!dbuser) {
-      return res.status(200).json({
-        success: false,
-        message: "User not dound",
-      });
-    }
-
-    if (size > 50 * 1024 * 1024) {
-      return res.status(413).json({ error: "File too large" });
-    }
-    if (dbuser.storageUsed + size > dbuser.maxStorageLimit) {
-      return res.status(413).json({
-        success: false,
-        message: "Storage Lmimt exceeded",
-      });
-    }
-    const extension = path.extname(filename);
-
-    const fileDoc = await File.create({
-      name: filename,
-      extension,
-      parentDirId,
-      userId: sessionUser._id,
-      size,
-      isUploading: true,
-    });
-    const uploadSignedUrl = await createUploadSignedUrl({
-      key: `${sessionUser._id}/${fileDoc._id}${extension}`,
-      contentType: req.body.contentType,
-    });
-    console.log("Generated S3 key:", `${fileDoc._id}${extension}`);
-
-    console.log(uploadSignedUrl);
-    res.json({
-      uploadUrl: "test URl",
-      uploadSignedUrl,
-      fileId: fileDoc._id,
-    });
-  } catch (error) {
-    console.log(error);
+  if (!parentDir) {
+    throw new AppError("Parent directory not found", 404);
   }
+
+  const filename = req.body.name || "untitled";
+  const size = Number(req.body.size) || 0;
+  const dbuser = await User.findById(sessionUser._id).select(
+    "storageUsed maxStorageLimit",
+  );
+  if (!dbuser) {
+    throw new AppError("User not found ", 404);
+  }
+
+  if (size > 50 * 1024 * 1024) {
+    throw new AppError("File too large", 413);
+  }
+  if (dbuser.storageUsed + size > dbuser.maxStorageLimit) {
+    throw new AppError("Storage Limit exceeded", 413);
+  }
+  const extension = path.extname(filename);
+
+  const fileDoc = await File.create({
+    name: filename,
+    extension,
+    parentDirId,
+    userId: sessionUser._id,
+    size,
+    isUploading: true,
+  });
+  const uploadSignedUrl = await createUploadSignedUrl({
+    key: `${sessionUser._id}/${fileDoc._id}${extension}`,
+    contentType: req.body.contentType,
+  });
+
+  res.json({
+    uploadUrl: "test URl",
+    uploadSignedUrl,
+    fileId: fileDoc._id,
+  });
 };
 
-export const uploadComplete = async (req, res, next) => {
-  const file = await File.findById(req.body.fileId);
+export const uploadComplete = async (req, res) => {
+  const file = await File.findOne({
+    _id: req.body.fileId,
+    userId: req.user._id,
+  });
   if (!file) {
-    return res.status(404).json({
-      success: false,
-      message: "files not found in our record",
-    });
+    throw new AppError("files not found in our record", 404);
   }
   const fileData = await getS3FileMetaData(
     `${req.user._id}/${file._id}${file.extension}`,
   );
-  console.log(fileData);
-  try {
-    if (fileData.ContentLength !== file.size) {
-      await file.deleteOne();
-      return res.status(400).json({
-        success: false,
-        message: "file size doesnot match",
-      });
-    }
-    file.isUploading = false;
-    await file.save();
-    console.log(file.size, "this is the size of file");
-    await User.updateOne(
-      { _id: file.userId },
-      { $inc: { storageUsed: file.size } },
-    );
-    await incrementDirectorySize(file.parentDirId, file.size);
-    res.json({ message: "upload completed" });
-  } catch (error) {
-    await file.deleteOne();
 
-    return res.status(404).json({
-      success: false,
-      message: "files not uploaded in our record",
-    });
+  if (fileData.ContentLength !== file.size) {
+    await file.deleteOne();
+    throw new AppError("File size does not match", 400);
   }
-  console.log(req.body);
+  file.isUploading = false;
+  await file.save();
+  await User.updateOne(
+    { _id: file.userId },
+    { $inc: { storageUsed: file.size } },
+  );
+  await incrementDirectorySize(file.parentDirId, file.size);
+  res.json({ message: "upload completed" });
 };
 
 export const getPublicFile = async (req, res) => {
   const { token } = req.params;
-  try {
-    const file = await File.findOne({
-      "publicShare.token": token,
-      "publicShare.enabled": true,
-    }).lean();
-    if (!file) {
-      return res.status(404).json({
-        message: "Shared file not found or link has been revoked",
-      });
-    }
-    if (
-      file?.publicShare?.expiresAt &&
-      new Date(file?.publicShare?.expiresAt) < new Date()
-    ) {
-      return res.status(410).json({
-        success: false,
-        message: "This share link has expired",
-      });
-    }
-    const isDownload = req.query.action === "download";
-    const fileUrl = createCloudFrontGetSignedUrl({
-      key: `${file.userId}/${file._id}${file.extension}`,
-      download: isDownload,
-      filename: isDownload ? file.name : undefined,
-    });
-    if (isDownload) {
-      return res.redirect(fileUrl);
-    }
-    return res.status(200).json({
-      success: true,
-      url: fileUrl,
-      name: file.name,
-      extension: file.extension,
-      size: file.size,
-      permission: file.parentShare?.permission || "view",
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed tp access shared file",
-    });
+
+  const file = await File.findOne({
+    "publicShare.token": token,
+    "publicShare.enabled": true,
+  }).lean();
+  if (!file) {
+    throw new AppError("Shared file not found or link has been revoked", 404);
   }
+  if (
+    file?.publicShare?.expiresAt &&
+    new Date(file?.publicShare?.expiresAt) < new Date()
+  ) {
+    throw new AppError("This share link has expired", 410);
+  }
+  const isDownload = req.query.action === "download";
+  const fileUrl = createCloudFrontGetSignedUrl({
+    key: `${file.userId}/${file._id}${file.extension}`,
+    download: isDownload,
+    filename: isDownload ? file.name : undefined,
+  });
+  if (isDownload) {
+    return res.redirect(fileUrl);
+  }
+  return res.status(200).json({
+    success: true,
+    url: fileUrl,
+    name: file.name,
+    extension: file.extension,
+    size: file.size,
+    permission: file.parentShare?.permission || "view",
+  });
 };

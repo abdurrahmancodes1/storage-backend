@@ -7,18 +7,19 @@ import {
   getDirectory,
   renameDirectory,
 } from "../controllers/directoryController.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
 const router = express.Router();
 
 router.param("parentDirId", validateIdMiddleware);
 router.param("id", validateIdMiddleware);
 
-router.get("/:id?", getDirectory);
+router.get("/:id?", asyncHandler(getDirectory));
 
-router.post("/:parentDirId?", createDirectory);
+router.post("/:parentDirId?", asyncHandler(createDirectory));
 
-router.patch("/:id", renameDirectory);
+router.patch("/:id", asyncHandler(renameDirectory));
 
-router.delete("/:id", deleteDirectory);
+router.delete("/:id", asyncHandler(deleteDirectory));
 
 export default router;

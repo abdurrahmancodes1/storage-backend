@@ -1,6 +1,7 @@
 import Razorpay from "razorpay";
 import Subscription from "../models/subscriptionModel.js";
 import User from "../models/userModel.js";
+import AppError from "../utils/AppError.js";
 
 export const PLANS = {
   // Monthly Starter - 500 MB
@@ -25,53 +26,44 @@ export const PLANS = {
 };
 
 export const handleRazorpaywebhook = async (req, res) => {
-  try {
-    console.log("Razorpay webhook hit");
+  const signature = req.headers["x-razorpay-signature"];
 
-    const signature = req.headers["x-razorpay-signature"];
+  const isSignatureValid = Razorpay.validateWebhookSignature(
+    req.body.toString(),
+    signature,
+    process.env.RAZORPAY_WEBHOOK_KEY,
+  );
 
-    const isSignatureValid = Razorpay.validateWebhookSignature(
-      req.body.toString(),
-      signature,
-      process.env.RAZORPAY_WEBHOOK_KEY,
-    );
-
-    console.log("SIGNATURE:", isSignatureValid);
-
-    if (!isSignatureValid) {
-      return res.sendStatus(400);
-    }
-
-    const body = JSON.parse(req.body.toString());
-
-    console.log("EVENT:", body.event);
-
-    if (body.event === "subscription.activated") {
-      const rzpSubscription = body.payload.subscription.entity;
-
-      console.log("SUB:", rzpSubscription.id);
-      console.log("STATUS:", rzpSubscription.status);
-
-      const subscription = await Subscription.findOne({
-        razorpaySubscriptionId: rzpSubscription.id,
-      });
-
-      subscription.status = rzpSubscription.status;
-      await subscription.save();
-
-      const storageQuotaBytes =
-        PLANS[rzpSubscription.plan_id].storageQuotaBytes;
-
-      await User.findByIdAndUpdate(subscription.userId, {
-        maxStorageLimit: storageQuotaBytes,
-      });
-
-      console.log("Subscription updated");
-    }
-
-    return res.sendStatus(200);
-  } catch (err) {
-    console.log(err);
-    return res.sendStatus(500);
+  if (!isSignatureValid) {
+    throw new AppError("Invalid webhook signature", 400);
   }
+
+  const body = JSON.parse(req.body.toString());
+
+  if (body.event === "subscription.activated") {
+    const rzpSubscription = body.payload.subscription.entity;
+
+    const subscription = await Subscription.findOne({
+      razorpaySubscriptionId: rzpSubscription.id,
+    });
+    if (!subscription) {
+      throw new AppError("Subscription not found", 404);
+    }
+    subscription.status = rzpSubscription.status;
+    await subscription.save();
+
+    const plan = PLANS[rzpSubscription.plan_id];
+
+    if (!plan) {
+      throw new AppError("Unknown subscription plan", 400);
+    }
+    await User.findByIdAndUpdate(subscription.userId, {
+      maxStorageLimit: plan.storageQuotaBytes,
+    });
+    await User.findByIdAndUpdate(subscription.userId, {
+      maxStorageLimit: storageQuotaBytes,
+    });
+  }
+
+  return res.sendStatus(200);
 };

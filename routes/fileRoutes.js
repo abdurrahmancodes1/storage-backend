@@ -8,16 +8,17 @@ import {
   uploadComplete,
   uploadInitiate,
 } from "../controllers/fileController.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
 const router = express.Router();
-router.post("/upload/initiate", uploadInitiate);
-router.post("/upload/complete", uploadComplete);
+router.post("/upload/initiate", asyncHandler(uploadInitiate));
+router.post("/upload/complete", asyncHandler(uploadComplete));
 router.param("parentDirId", validateIdMiddleware);
 router.param("id", validateIdMiddleware);
 
-router.get("/:id", getFile);
+router.get("/:id", asyncHandler(getFile));
 
-router.patch("/:id", renameFile);
-router.delete("/:id", deleteFile);
+router.patch("/:id", asyncHandler(renameFile));
+router.delete("/:id", asyncHandler(deleteFile));
 
 export default router;

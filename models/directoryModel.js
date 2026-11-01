@@ -54,6 +54,6 @@ const directorySchema = new Schema(
     strict: "throw",
   },
 );
-
+directorySchema.index({ userId: 1, parentDirId: 1 });
 const Directory = model("Directory", directorySchema);
 export default Directory;
