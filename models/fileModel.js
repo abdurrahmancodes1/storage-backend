@@ -23,6 +23,16 @@ const fileSchema = new Schema(
         type: String,
         default: null,
       },
+      // Opaque short slug used in the public URL.
+      slug: {
+        type: String,
+        default: null,
+      },
+      // Hash retained for indexed/defensive lookup.
+      slugHash: {
+        type: String,
+        default: null,
+      },
       permission: {
         type: String,
         default: "view",

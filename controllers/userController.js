@@ -329,15 +329,18 @@ export const sharePublic = async (req, res) => {
   if (file.userId.toString() !== user._id.toString()) {
     throw new AppError("Not authorized", 403);
   }
-  const token = crypto.randomBytes(32).toString("hex");
+  const slug = crypto.randomBytes(6).toString("base64url");
+  const slugHash = crypto.createHash("sha256").update(slug).digest("hex");
   file.publicShare = {
     enabled: true,
-    token,
+    token: null,
+    slug,
+    slugHash,
     permission: "view",
     expiresAt: null,
   };
   await file.save();
-  const shareUrl = `${process.env.CLIENT_URL_1 || "http://localhost:5173"}/share/${token}`;
+  const shareUrl = `${process.env.CLIENT_URL_1 || "http://localhost:5173"}/s/${slug}`;
   return res.status(200).json({
     message: "Public sharing enabled",
     shareUrl,
@@ -354,17 +357,21 @@ export const getPubliccShare = async (req, res) => {
   if (!file) {
     throw new AppError("File not found", 404);
   }
-  if (!file.publicShare?.enabled || !file.publicShare?.token) {
+  if (!file.publicShare?.enabled || (!file.publicShare?.slugHash && !file.publicShare?.token)) {
     return res.json({
       enabled: false,
       shareUrl: null,
     });
   }
 
-  const shareUrl = `${process.env.CLIENT_URL_1 || "http://localhost:5173"}/share/${file.publicShare.token}`;
+  const publicIdentifier = file.publicShare.slug || file.publicShare.token;
+  const shareUrl = publicIdentifier
+    ? `${process.env.CLIENT_URL_1 || "http://localhost:5173"}/${file.publicShare.slug ? "s" : "share"}/${publicIdentifier}`
+    : null;
   return res.json({
     enabled: true,
     shareUrl,
+    linkType: file.publicShare.slugHash ? "short" : "legacy",
     permission: file.publicShare.permission || "view",
     expiresAt: file.publicShare.expiresAt,
   });

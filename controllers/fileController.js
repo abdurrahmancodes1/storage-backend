@@ -2,6 +2,7 @@ import path from "path";
 import File from "../models/fileModel.js";
 import Directory from "../models/directoryModel.js";
 import mongoose from "mongoose";
+import crypto from "node:crypto";
 import User from "../models/userModel.js";
 import {
   createGetSignedUrl,
@@ -182,10 +183,14 @@ export const uploadComplete = async (req, res) => {
 
 export const getPublicFile = async (req, res) => {
   const { token } = req.params;
+  const slugHash = crypto.createHash("sha256").update(token).digest("hex");
 
   const file = await File.findOne({
-    "publicShare.token": token,
     "publicShare.enabled": true,
+    $or: [
+      { "publicShare.slugHash": slugHash },
+      { "publicShare.token": token },
+    ],
   }).lean();
   if (!file) {
     throw new AppError("Shared file not found or link has been revoked", 404);
