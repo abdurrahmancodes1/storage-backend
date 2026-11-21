@@ -136,11 +136,18 @@ export const deleteDirectory = async (req, res) => {
   });
   await User.updateOne(
     { _id: user._id },
-    {
-      $inc: {
-        storageUsed: -totalDeletedSize,
+    [
+      {
+        $set: {
+          storageUsed: {
+            $max: [
+              { $subtract: ["$storageUsed", totalDeletedSize || 0] },
+              0,
+            ],
+          },
+        },
       },
-    },
+    ],
   );
   return res.json({ message: "Directory deleted" });
 };

@@ -13,6 +13,8 @@ import {
 import { error } from "console";
 import { createCloudFrontGetSignedUrl } from "../services/cloudfront.js";
 import AppError from "../utils/AppError.js";
+import { recordFileAccessSafely } from "../services/fileAccessService.js";
+import FileAccessEvent from "../models/fileAccessEventModel.js";
 
 export async function incrementDirectorySize(dirId, sizeDelta) {
   let currentDirId = dirId;
@@ -56,6 +58,47 @@ export const getFile = async (req, res) => {
   }
 };
 
+export const getFileActivity = async (req, res) => {
+  const file = await File.findOne({
+    _id: req.params.id,
+    userId: req.user._id,
+  }).select("_id").lean();
+
+  if (!file) throw new AppError("File not found", 404);
+
+  const [summary] = await FileAccessEvent.aggregate([
+    { $match: { fileId: file._id, actorType: { $ne: "owner" } } },
+    {
+      $group: {
+        _id: null,
+        previewCount: {
+          $sum: { $cond: [{ $eq: ["$eventType", "preview"] }, 1, 0] },
+        },
+        downloadCount: {
+          $sum: { $cond: [{ $eq: ["$eventType", "download"] }, 1, 0] },
+        },
+        lastAccessAt: { $max: "$createdAt" },
+      },
+    },
+  ]);
+
+  const recent = await FileAccessEvent.find({
+    fileId: file._id,
+    actorType: { $ne: "owner" },
+  })
+    .select("eventType actorType createdAt")
+    .sort({ createdAt: -1 })
+    .limit(20)
+    .lean();
+
+  return res.json({
+    previewCount: summary?.previewCount || 0,
+    downloadCount: summary?.downloadCount || 0,
+    lastAccessAt: summary?.lastAccessAt || null,
+    recent,
+  });
+};
+
 export const renameFile = async (req, res, next) => {
   const user = req.user;
   const { id } = req.params;
@@ -92,7 +135,18 @@ export const deleteFile = async (req, res) => {
   if (!fileData.isUploading) {
     await User.updateOne(
       { _id: fileData.userId },
-      { $inc: { storageUsed: -fileData.size } },
+      [
+        {
+          $set: {
+            storageUsed: {
+              $max: [
+                { $subtract: ["$storageUsed", fileData.size || 0] },
+                0,
+              ],
+            },
+          },
+        },
+      ],
     );
 
     await incrementDirectorySize(fileData.parentDirId, -fileData.size);
@@ -206,6 +260,12 @@ export const getPublicFile = async (req, res) => {
     key: `${file.userId}/${file._id}${file.extension}`,
     download: isDownload,
     filename: isDownload ? file.name : undefined,
+  });
+  await recordFileAccessSafely({
+    file,
+    eventType: isDownload ? "download" : "preview",
+    actorType: "public",
+    requestId: req.get("x-request-id") || null,
   });
   if (isDownload) {
     return res.redirect(fileUrl);

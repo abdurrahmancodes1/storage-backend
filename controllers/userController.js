@@ -180,6 +180,11 @@ export const getCurrentUser = async (req, res) => {
     throw new AppError("User not found", 404);
   }
 
+  if (user.storageUsed < 0) {
+    user.storageUsed = 0;
+    await user.save();
+  }
+
   return res.status(200).json(user);
 };
 

@@ -13,7 +13,9 @@ import { connectDB } from "./config/mongoose.js";
 import webhooksRoutes from "./routes/webhookRoutes.js";
 import rateLimiter from "./middlewares/rateLimiter.js";
 import { success } from "zod";
+import { startNotificationWorker } from "./services/notificationWorker.js";
 await connectDB();
+startNotificationWorker();
 
 const app = express();
 app.set("trust proxy", 1);

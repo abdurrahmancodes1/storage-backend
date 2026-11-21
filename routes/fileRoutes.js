@@ -3,6 +3,7 @@ import validateIdMiddleware from "../middlewares/validateIdMiddleware.js";
 import {
   deleteFile,
   getFile,
+  getFileActivity,
   getPublicFile,
   renameFile,
   uploadComplete,
@@ -17,6 +18,7 @@ router.param("parentDirId", validateIdMiddleware);
 router.param("id", validateIdMiddleware);
 
 router.get("/:id", asyncHandler(getFile));
+router.get("/:id/activity", asyncHandler(getFileActivity));
 
 router.patch("/:id", asyncHandler(renameFile));
 router.delete("/:id", asyncHandler(deleteFile));
